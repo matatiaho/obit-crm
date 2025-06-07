@@ -7,9 +7,19 @@ served by Flask.
 
 ## Prerequisites
 
-- Python 3.8 or later
+- Python 3.8–3.11
 - Google Chrome (required for Selenium)
 - (Optional) `venv` or another virtual environment tool
+
+> **Note:** Python 3.12 is currently unsupported because several
+> dependencies still import `distutils`. Use Python 3.8–3.11 or install an
+> older `setuptools` that bundles `distutils`:
+>
+> ```bash
+> python3.11 -m venv venv
+> source venv/bin/activate
+> pip install 'setuptools<60'
+> ```
 
 ## Setup
 
