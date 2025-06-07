@@ -8,6 +8,9 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+import undetected_chromedriver as uc
+import shutil
+import requests
 
 
 def split_name(full_name: str):
@@ -23,6 +26,7 @@ class Obituary:
     last_name: str
     date_of_death: str
     url: str
+    source: str
 
 
 class ObituaryDatabase:
@@ -34,23 +38,29 @@ class ObituaryDatabase:
                 first_name TEXT,
                 last_name TEXT,
                 date_of_death TEXT,
-                url TEXT UNIQUE
+                url TEXT UNIQUE,
+                source TEXT
             )"""
         )
+        # ensure older databases have the source column
+        try:
+            self.conn.execute("ALTER TABLE obituaries ADD COLUMN source TEXT")
+        except sqlite3.OperationalError:
+            pass
         self.conn.commit()
 
     def insert_if_new(self, obit: Obituary) -> bool:
         cur = self.conn.cursor()
         cur.execute(
-            "SELECT 1 FROM obituaries WHERE first_name=? AND last_name=? AND date_of_death=?",
-            (obit.first_name, obit.last_name, obit.date_of_death),
+            "SELECT 1 FROM obituaries WHERE first_name=? AND last_name=? AND date_of_death=? AND source=?",
+            (obit.first_name, obit.last_name, obit.date_of_death, obit.source),
         )
         if cur.fetchone():
             # duplicate
             return False
         cur.execute(
-            "INSERT OR IGNORE INTO obituaries (first_name, last_name, date_of_death, url) VALUES (?, ?, ?, ?)",
-            (obit.first_name, obit.last_name, obit.date_of_death, obit.url),
+            "INSERT OR IGNORE INTO obituaries (first_name, last_name, date_of_death, url, source) VALUES (?, ?, ?, ?, ?)",
+            (obit.first_name, obit.last_name, obit.date_of_death, obit.url, obit.source),
         )
         self.conn.commit()
         return True
@@ -68,22 +78,42 @@ class ObituaryScraper:
         chrome_options.add_argument("--disable-dev-shm-usage")
         self.driver = webdriver.Chrome(options=chrome_options)
 
+        # driver that attempts to bypass Cloudflare using undetected-chromedriver
+        uc_opts = uc.ChromeOptions()
+        uc_opts.add_argument("--headless=new")
+        uc_opts.add_argument("--no-sandbox")
+        uc_opts.add_argument("--disable-dev-shm-usage")
+        uc_opts.add_argument("--user-data-dir=/tmp/ucdriver")
+        chrome_path = (
+            shutil.which("google-chrome")
+            or shutil.which("chromium-browser")
+            or "/root/.cache/selenium/chrome/linux64/137.0.7151.68/chrome"
+        )
+        try:
+            self.uc_driver = uc.Chrome(options=uc_opts, browser_executable_path=chrome_path)
+        except Exception as exc:
+            print("Failed to start undetected chromedriver:", exc)
+            self.uc_driver = self.driver
+
     def close(self):
+        try:
+            self.uc_driver.quit()
+        except Exception:
+            pass
         self.driver.quit()
         self.db.close()
 
-    def _save_obituary(self, first: str, last: str, dod: str, url: str):
-        obit = Obituary(first, last, dod, url)
+    def _save_obituary(self, first: str, last: str, dod: str, url: str, source: str):
+        obit = Obituary(first, last, dod, url, source)
         if self.db.insert_if_new(obit):
-            print(f"Saved: {first} {last} {dod} -> {url}")
+            print(f"Saved: {first} {last} {dod} [{source}] -> {url}")
         else:
-            print(f"Duplicate: {first} {last} {dod}")
+            print(f"Duplicate: {first} {last} {dod} [{source}]")
 
     def scrape_mount_sinai(self):
         url = "https://mountsinaiparks.keeper.memorial/"
-        self.driver.get(url)
-        time.sleep(3)
-        soup = BeautifulSoup(self.driver.page_source, "html.parser")
+        resp = requests.get(url)
+        soup = BeautifulSoup(resp.text, "html.parser")
         script = soup.find("script", id="__NEXT_DATA__")
         if not script:
             print("No data found on Mount Sinai page")
@@ -92,14 +122,17 @@ class ObituaryScraper:
         queries = data.get("props", {}).get("pageProps", {}).get("dehydratedState", {}).get("queries", [])
         for q in queries:
             if q.get("queryKey", [])[0] == "MICROSITE_PROFILES":
-                profiles = q.get("state", {}).get("data", {}).get("data", {}).get("profiles", [])
-                for p in profiles:
-                    first = p.get("firstName", "")
-                    last = p.get("lastName", "")
-                    dod = p.get("dateOfDeathDisplay", "")
-                    slug = p.get("usernameForUrl", "")
-                    profile_url = urljoin(url, slug)
-                    self._save_obituary(first, last, dod, profile_url)
+                data_state = q.get("state", {}).get("data", {})
+                pages = data_state.get("pages", [])
+                if pages:
+                    profiles = pages[0].get("data", [])
+                    for p in profiles:
+                        first = p.get("firstName", "")
+                        last = p.get("lastName", "")
+                        dod = p.get("dateOfDeathDisplay", "")
+                        slug = p.get("usernameForUrl", "")
+                        profile_url = urljoin(url, slug)
+                        self._save_obituary(first, last, dod, profile_url, "Mount Sinai")
                 break
 
     def scrape_echovita(self):
@@ -117,13 +150,13 @@ class ObituaryScraper:
             first, last = split_name(name)
             dod = date_span.get_text(strip=True)
             link = urljoin(base, name_a["href"])
-            self._save_obituary(first, last, dod, link)
+            self._save_obituary(first, last, dod, link, "Echovita")
 
     def scrape_legacy(self):
         url = "https://www.legacy.com/us/obituaries/latimes/browse"
-        self.driver.get(url)
-        time.sleep(5)  # allow Cloudflare challenge to complete
-        soup = BeautifulSoup(self.driver.page_source, "html.parser")
+        self.uc_driver.get(url)
+        time.sleep(10)  # allow Cloudflare challenge to complete
+        soup = BeautifulSoup(self.uc_driver.page_source, "html.parser")
         for row in soup.select("div.card__content"):
             link = row.select_one("a.card__title-link")
             date_span = row.select_one("span.date")
@@ -132,7 +165,7 @@ class ObituaryScraper:
             name = link.get_text(strip=True)
             first, last = split_name(name)
             dod = date_span.get_text(strip=True)
-            self._save_obituary(first, last, dod, link["href"])
+            self._save_obituary(first, last, dod, link["href"], "Legacy")
 
     def run(self):
         self.scrape_mount_sinai()

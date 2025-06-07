@@ -32,7 +32,9 @@ served by Flask.
    ```
 
 2. Open `http://localhost:5000` in your browser. Click **Run Scraper** to
-   trigger scraping. The table of obituaries refreshes on each page load.
+   trigger scraping. Use the search box or table headers to filter and sort
+   results by name, date of death, or source. The table refreshes on each
+   page load.
 
 > **Note:** View the site through the address above. Opening
 > `index.html` directly (for example with the Live Server extension) serves
