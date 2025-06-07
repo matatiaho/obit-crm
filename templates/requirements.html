@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Requirements Check</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container my-5">
+        <h1 class="mb-4">Environment Status</h1>
+        <p>Python version: {{ python_version }}</p>
+        <table class="table table-bordered table-striped">
+            <thead>
+                <tr>
+                    <th>Requirement</th>
+                    <th>Installed Version</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in requirements %}
+                <tr>
+                    <td>{{ r.name }}</td>
+                    <td>{% if r.version %}{{ r.version }}{% else %}<span class="text-danger">Not installed</span>{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
