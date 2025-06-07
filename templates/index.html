@@ -10,12 +10,19 @@
     <div class="container my-5">
         <h1 class="text-center mb-4">Obituary Records</h1>
         <p class="text-center"><a class="btn btn-primary" href="/run">Run Scraper</a></p>
+        <form class="mb-3" method="get" action="/">
+            <div class="input-group">
+                <input type="text" class="form-control" placeholder="Search name" name="q" value="{{ search }}">
+                <button class="btn btn-secondary" type="submit">Search</button>
+            </div>
+        </form>
         <table class="table table-bordered table-striped table-hover">
             <thead>
                 <tr>
-                    <th>First Name</th>
-                    <th>Last Name</th>
-                    <th>Date of Death</th>
+                    <th><a href="{{ url_for('index', sort='name', q=search) }}">First Name</a></th>
+                    <th><a href="{{ url_for('index', sort='name', q=search) }}">Last Name</a></th>
+                    <th><a href="{{ url_for('index', sort='date', q=search) }}">Date of Death</a></th>
+                    <th><a href="{{ url_for('index', sort='source', q=search) }}">Source</a></th>
                     <th>URL</th>
                 </tr>
             </thead>
@@ -25,6 +32,7 @@
                     <td>{{ row[1] }}</td>
                     <td>{{ row[2] }}</td>
                     <td>{{ row[3] }}</td>
+                    <td>{{ row[5] }}</td>
                     <td><a href="{{ row[4] }}" target="_blank">link</a></td>
                 </tr>
                 {% endfor %}
