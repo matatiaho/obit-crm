@@ -12,6 +12,14 @@ served by Flask.
 - (Optional) `venv` or another virtual environment tool
 
 > **Note:** Python 3.12 is currently unsupported because several
+> dependencies still import `distutils`. Use Python 3.8–3.11 or install a
+> version of `setuptools` that provides the `distutils` module:
+>
+> ```bash
+> python3.11 -m venv venv     # or python3.12 if needed
+> source venv/bin/activate
+> pip install 'setuptools>=69'
+=======
 > dependencies still import `distutils`. Use Python 3.8–3.11 or install an
 > older `setuptools` that bundles `distutils`:
 >

@@ -3,3 +3,4 @@ selenium
 requests
 flask
 undetected-chromedriver
+setuptools>=69
