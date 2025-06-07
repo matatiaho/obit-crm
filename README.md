@@ -19,6 +19,14 @@ served by Flask.
 > python3.11 -m venv venv     # or python3.12 if needed
 > source venv/bin/activate
 > pip install 'setuptools>=69'
+=======
+> dependencies still import `distutils`. Use Python 3.8–3.11 or install an
+> older `setuptools` that bundles `distutils`:
+>
+> ```bash
+> python3.11 -m venv venv
+> source venv/bin/activate
+> pip install 'setuptools<60'
 > ```
 
 ## Setup
