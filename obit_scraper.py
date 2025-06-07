@@ -23,6 +23,7 @@ class Obituary:
     last_name: str
     date_of_death: str
     url: str
+    source: str
 
 
 class ObituaryDatabase:
@@ -34,23 +35,29 @@ class ObituaryDatabase:
                 first_name TEXT,
                 last_name TEXT,
                 date_of_death TEXT,
-                url TEXT UNIQUE
+                url TEXT UNIQUE,
+                source TEXT
             )"""
         )
+        # ensure older databases have the source column
+        try:
+            self.conn.execute("ALTER TABLE obituaries ADD COLUMN source TEXT")
+        except sqlite3.OperationalError:
+            pass
         self.conn.commit()
 
     def insert_if_new(self, obit: Obituary) -> bool:
         cur = self.conn.cursor()
         cur.execute(
-            "SELECT 1 FROM obituaries WHERE first_name=? AND last_name=? AND date_of_death=?",
-            (obit.first_name, obit.last_name, obit.date_of_death),
+            "SELECT 1 FROM obituaries WHERE first_name=? AND last_name=? AND date_of_death=? AND source=?",
+            (obit.first_name, obit.last_name, obit.date_of_death, obit.source),
         )
         if cur.fetchone():
             # duplicate
             return False
         cur.execute(
-            "INSERT OR IGNORE INTO obituaries (first_name, last_name, date_of_death, url) VALUES (?, ?, ?, ?)",
-            (obit.first_name, obit.last_name, obit.date_of_death, obit.url),
+            "INSERT OR IGNORE INTO obituaries (first_name, last_name, date_of_death, url, source) VALUES (?, ?, ?, ?, ?)",
+            (obit.first_name, obit.last_name, obit.date_of_death, obit.url, obit.source),
         )
         self.conn.commit()
         return True
@@ -72,12 +79,12 @@ class ObituaryScraper:
         self.driver.quit()
         self.db.close()
 
-    def _save_obituary(self, first: str, last: str, dod: str, url: str):
-        obit = Obituary(first, last, dod, url)
+    def _save_obituary(self, first: str, last: str, dod: str, url: str, source: str):
+        obit = Obituary(first, last, dod, url, source)
         if self.db.insert_if_new(obit):
-            print(f"Saved: {first} {last} {dod} -> {url}")
+            print(f"Saved: {first} {last} {dod} [{source}] -> {url}")
         else:
-            print(f"Duplicate: {first} {last} {dod}")
+            print(f"Duplicate: {first} {last} {dod} [{source}]")
 
     def scrape_mount_sinai(self):
         url = "https://mountsinaiparks.keeper.memorial/"
@@ -99,7 +106,7 @@ class ObituaryScraper:
                     dod = p.get("dateOfDeathDisplay", "")
                     slug = p.get("usernameForUrl", "")
                     profile_url = urljoin(url, slug)
-                    self._save_obituary(first, last, dod, profile_url)
+                    self._save_obituary(first, last, dod, profile_url, "Mount Sinai")
                 break
 
     def scrape_echovita(self):
@@ -117,7 +124,7 @@ class ObituaryScraper:
             first, last = split_name(name)
             dod = date_span.get_text(strip=True)
             link = urljoin(base, name_a["href"])
-            self._save_obituary(first, last, dod, link)
+            self._save_obituary(first, last, dod, link, "Echovita")
 
     def scrape_legacy(self):
         url = "https://www.legacy.com/us/obituaries/latimes/browse"
@@ -132,7 +139,7 @@ class ObituaryScraper:
             name = link.get_text(strip=True)
             first, last = split_name(name)
             dod = date_span.get_text(strip=True)
-            self._save_obituary(first, last, dod, link["href"])
+            self._save_obituary(first, last, dod, link["href"], "Legacy")
 
     def run(self):
         self.scrape_mount_sinai()
