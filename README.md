@@ -7,9 +7,19 @@ served by Flask.
 
 ## Prerequisites
 
-- Python 3.8 or later
+- Python 3.8–3.11
 - Google Chrome (required for Selenium)
 - (Optional) `venv` or another virtual environment tool
+
+> **Note:** Python 3.12 is currently unsupported because several
+> dependencies still import `distutils`. Use Python 3.8–3.11 or install an
+> older `setuptools` that bundles `distutils`:
+>
+> ```bash
+> python3.11 -m venv venv
+> source venv/bin/activate
+> pip install 'setuptools<60'
+> ```
 
 ## Setup
 
@@ -24,6 +34,9 @@ served by Flask.
    pip install -r requirements.txt
    ```
 
+3. Start the app and visit `/requirements` to verify your Python version and
+   installed packages match the list above.
+
 ## Running
 
 1. Start the application:
@@ -31,10 +44,11 @@ served by Flask.
    python app.py
    ```
 
-2. Open `http://localhost:5000` in your browser. Click **Run Scraper** to
-   trigger scraping. Use the search box or table headers to filter and sort
-   results by name, date of death, or source. The table refreshes on each
-   page load.
+2. Open `http://localhost:5000` in your browser. Use the **Run Scraper**
+   button to trigger scraping or click **Check Environment** to view your
+   Python version and installed packages. The search box and table headers
+   let you filter and sort results by name, date of death, or source. The
+   table refreshes on each page load.
 
 > **Note:** View the site through the address above. Opening
 > `index.html` directly (for example with the Live Server extension) serves
